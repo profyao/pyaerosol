@@ -832,14 +832,15 @@ static CYTHON_INLINE int  __Pyx_GetBufferAndValidate(Py_buffer* buf, PyObject* o
     __Pyx_TypeInfo* dtype, int flags, int nd, int cast, __Pyx_BufFmt_StackElem* stack);
 static CYTHON_INLINE void __Pyx_SafeReleaseBuffer(Py_buffer* info);
 
+#define __Pyx_BufPtrFortranContig1d(type, buf, i0, s0) ((type)buf + i0)
+#define __Pyx_BufPtrFortranContig2d(type, buf, i0, s0, i1, s1) ((type)((char*)buf + i1 * s1) + i0)
 #define __Pyx_BufPtrCContig1d(type, buf, i0, s0) ((type)buf + i0)
-#define __Pyx_BufPtrCContig2d(type, buf, i0, s0, i1, s1) ((type)((char*)buf + i0 * s0) + i1)
 static CYTHON_INLINE void __Pyx_ErrRestore(PyObject *type, PyObject *value, PyObject *tb);
 static CYTHON_INLINE void __Pyx_ErrFetch(PyObject **type, PyObject **value, PyObject **tb);
 
 static void __Pyx_RaiseBufferIndexError(int axis);
 
-#define __Pyx_BufPtrCContig3d(type, buf, i0, s0, i1, s1, i2, s2) ((type)((char*)buf + i0 * s0 + i1 * s1) + i2)
+#define __Pyx_BufPtrFortranContig3d(type, buf, i0, s0, i1, s1, i2, s2) ((type)((char*)buf + i1 * s1 + i2 * s2) + i0)
 #if CYTHON_COMPILING_IN_CPYTHON
 static CYTHON_INLINE PyObject* __Pyx_PyObject_GetAttrStr(PyObject* obj, PyObject* attr_name) {
     PyTypeObject* tp = Py_TYPE(obj);
@@ -1180,9 +1181,9 @@ static PyObject *__pyx_codeobj__10;
 /* "interpol.pyx":13
  * @cython.wraparound(False)
  * 
- * def interpol_2d(np.ndarray[double, ndim=1, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_2d(np.ndarray[double, ndim=1, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double, ndim = 2, mode="c"] lookup not None, \
+ *                 np.ndarray[double, ndim = 2, mode="fortran"] lookup not None, \
  */
 
 /* Python wrapper */
@@ -1303,12 +1304,12 @@ static PyObject *__pyx_pf_8interpol_interpol_2d(CYTHON_UNUSED PyObject *__pyx_se
   __pyx_pybuffernd_lookup_size.rcbuffer = &__pyx_pybuffer_lookup_size;
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_arr, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_C_CONTIGUOUS, 1, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_arr, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_F_CONTIGUOUS, 1, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_pybuffernd_arr.diminfo[0].strides = __pyx_pybuffernd_arr.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_arr.diminfo[0].shape = __pyx_pybuffernd_arr.rcbuffer->pybuffer.shape[0];
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_lookup.rcbuffer->pybuffer, (PyObject*)__pyx_v_lookup, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_C_CONTIGUOUS, 2, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_lookup.rcbuffer->pybuffer, (PyObject*)__pyx_v_lookup, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_F_CONTIGUOUS, 2, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_pybuffernd_lookup.diminfo[0].strides = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_lookup.diminfo[0].shape = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_lookup.diminfo[1].strides = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_lookup.diminfo[1].shape = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.shape[1];
   {
@@ -1322,20 +1323,20 @@ static PyObject *__pyx_pf_8interpol_interpol_2d(CYTHON_UNUSED PyObject *__pyx_se
  * 
  *     c_interpol_2d(&arr[0], tau, &lookup[0,0], &lookup_size[0])             # <<<<<<<<<<<<<<
  * 
- * def interpol_3d(np.ndarray[double,ndim=2, mode = "c"] arr not None, \
+ * def interpol_3d(np.ndarray[double,ndim=2, mode = "fortran"] arr not None, \
  */
   __pyx_t_1 = 0;
   __pyx_t_2 = 0;
   __pyx_t_3 = 0;
   __pyx_t_4 = 0;
-  c_interpol_2d((&(*__Pyx_BufPtrCContig1d(double *, __pyx_pybuffernd_arr.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_arr.diminfo[0].strides))), __pyx_v_tau, (&(*__Pyx_BufPtrCContig2d(double *, __pyx_pybuffernd_lookup.rcbuffer->pybuffer.buf, __pyx_t_2, __pyx_pybuffernd_lookup.diminfo[0].strides, __pyx_t_3, __pyx_pybuffernd_lookup.diminfo[1].strides))), (&(*__Pyx_BufPtrCContig1d(int *, __pyx_pybuffernd_lookup_size.rcbuffer->pybuffer.buf, __pyx_t_4, __pyx_pybuffernd_lookup_size.diminfo[0].strides))));
+  c_interpol_2d((&(*__Pyx_BufPtrFortranContig1d(double *, __pyx_pybuffernd_arr.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_arr.diminfo[0].strides))), __pyx_v_tau, (&(*__Pyx_BufPtrFortranContig2d(double *, __pyx_pybuffernd_lookup.rcbuffer->pybuffer.buf, __pyx_t_2, __pyx_pybuffernd_lookup.diminfo[0].strides, __pyx_t_3, __pyx_pybuffernd_lookup.diminfo[1].strides))), (&(*__Pyx_BufPtrCContig1d(int *, __pyx_pybuffernd_lookup_size.rcbuffer->pybuffer.buf, __pyx_t_4, __pyx_pybuffernd_lookup_size.diminfo[0].strides))));
 
   /* "interpol.pyx":13
  * @cython.wraparound(False)
  * 
- * def interpol_2d(np.ndarray[double, ndim=1, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_2d(np.ndarray[double, ndim=1, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double, ndim = 2, mode="c"] lookup not None, \
+ *                 np.ndarray[double, ndim = 2, mode="fortran"] lookup not None, \
  */
 
   /* function exit code */
@@ -1364,9 +1365,9 @@ static PyObject *__pyx_pf_8interpol_interpol_2d(CYTHON_UNUSED PyObject *__pyx_se
 /* "interpol.pyx":20
  *     c_interpol_2d(&arr[0], tau, &lookup[0,0], &lookup_size[0])
  * 
- * def interpol_3d(np.ndarray[double,ndim=2, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_3d(np.ndarray[double,ndim=2, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double,ndim=3, mode = "c"] lookup not None, \
+ *                 np.ndarray[double,ndim=3, mode = "fortran"] lookup not None, \
  */
 
 /* Python wrapper */
@@ -1490,12 +1491,12 @@ static PyObject *__pyx_pf_8interpol_2interpol_3d(CYTHON_UNUSED PyObject *__pyx_s
   __pyx_pybuffernd_lookup_size.rcbuffer = &__pyx_pybuffer_lookup_size;
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_arr, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_C_CONTIGUOUS, 2, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_arr.rcbuffer->pybuffer, (PyObject*)__pyx_v_arr, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_F_CONTIGUOUS, 2, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_pybuffernd_arr.diminfo[0].strides = __pyx_pybuffernd_arr.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_arr.diminfo[0].shape = __pyx_pybuffernd_arr.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_arr.diminfo[1].strides = __pyx_pybuffernd_arr.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_arr.diminfo[1].shape = __pyx_pybuffernd_arr.rcbuffer->pybuffer.shape[1];
   {
     __Pyx_BufFmt_StackElem __pyx_stack[1];
-    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_lookup.rcbuffer->pybuffer, (PyObject*)__pyx_v_lookup, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_C_CONTIGUOUS, 3, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
+    if (unlikely(__Pyx_GetBufferAndValidate(&__pyx_pybuffernd_lookup.rcbuffer->pybuffer, (PyObject*)__pyx_v_lookup, &__Pyx_TypeInfo_double, PyBUF_FORMAT| PyBUF_F_CONTIGUOUS, 3, 0, __pyx_stack) == -1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
   __pyx_pybuffernd_lookup.diminfo[0].strides = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.strides[0]; __pyx_pybuffernd_lookup.diminfo[0].shape = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.shape[0]; __pyx_pybuffernd_lookup.diminfo[1].strides = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.strides[1]; __pyx_pybuffernd_lookup.diminfo[1].shape = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.shape[1]; __pyx_pybuffernd_lookup.diminfo[2].strides = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.strides[2]; __pyx_pybuffernd_lookup.diminfo[2].shape = __pyx_pybuffernd_lookup.rcbuffer->pybuffer.shape[2];
   {
@@ -1555,14 +1556,14 @@ static PyObject *__pyx_pf_8interpol_2interpol_3d(CYTHON_UNUSED PyObject *__pyx_s
     __Pyx_RaiseBufferIndexError(__pyx_t_3);
     {__pyx_filename = __pyx_f[0]; __pyx_lineno = 25; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   }
-  c_interpol_3d((&(*__Pyx_BufPtrCContig2d(double *, __pyx_pybuffernd_arr.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_arr.diminfo[0].strides, __pyx_t_2, __pyx_pybuffernd_arr.diminfo[1].strides))), __pyx_v_tau, (&(*__Pyx_BufPtrCContig3d(double *, __pyx_pybuffernd_lookup.rcbuffer->pybuffer.buf, __pyx_t_4, __pyx_pybuffernd_lookup.diminfo[0].strides, __pyx_t_5, __pyx_pybuffernd_lookup.diminfo[1].strides, __pyx_t_6, __pyx_pybuffernd_lookup.diminfo[2].strides))), (&(*__Pyx_BufPtrCContig1d(int *, __pyx_pybuffernd_lookup_size.rcbuffer->pybuffer.buf, __pyx_t_7, __pyx_pybuffernd_lookup_size.diminfo[0].strides))));
+  c_interpol_3d((&(*__Pyx_BufPtrFortranContig2d(double *, __pyx_pybuffernd_arr.rcbuffer->pybuffer.buf, __pyx_t_1, __pyx_pybuffernd_arr.diminfo[0].strides, __pyx_t_2, __pyx_pybuffernd_arr.diminfo[1].strides))), __pyx_v_tau, (&(*__Pyx_BufPtrFortranContig3d(double *, __pyx_pybuffernd_lookup.rcbuffer->pybuffer.buf, __pyx_t_4, __pyx_pybuffernd_lookup.diminfo[0].strides, __pyx_t_5, __pyx_pybuffernd_lookup.diminfo[1].strides, __pyx_t_6, __pyx_pybuffernd_lookup.diminfo[2].strides))), (&(*__Pyx_BufPtrCContig1d(int *, __pyx_pybuffernd_lookup_size.rcbuffer->pybuffer.buf, __pyx_t_7, __pyx_pybuffernd_lookup_size.diminfo[0].strides))));
 
   /* "interpol.pyx":20
  *     c_interpol_2d(&arr[0], tau, &lookup[0,0], &lookup_size[0])
  * 
- * def interpol_3d(np.ndarray[double,ndim=2, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_3d(np.ndarray[double,ndim=2, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double,ndim=3, mode = "c"] lookup not None, \
+ *                 np.ndarray[double,ndim=3, mode = "fortran"] lookup not None, \
  */
 
   /* function exit code */
@@ -3720,9 +3721,9 @@ static int __Pyx_InitCachedConstants(void) {
   /* "interpol.pyx":13
  * @cython.wraparound(False)
  * 
- * def interpol_2d(np.ndarray[double, ndim=1, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_2d(np.ndarray[double, ndim=1, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double, ndim = 2, mode="c"] lookup not None, \
+ *                 np.ndarray[double, ndim = 2, mode="fortran"] lookup not None, \
  */
   __pyx_tuple__7 = PyTuple_Pack(4, __pyx_n_s_arr, __pyx_n_s_tau, __pyx_n_s_lookup, __pyx_n_s_lookup_size); if (unlikely(!__pyx_tuple__7)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_tuple__7);
@@ -3732,9 +3733,9 @@ static int __Pyx_InitCachedConstants(void) {
   /* "interpol.pyx":20
  *     c_interpol_2d(&arr[0], tau, &lookup[0,0], &lookup_size[0])
  * 
- * def interpol_3d(np.ndarray[double,ndim=2, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_3d(np.ndarray[double,ndim=2, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double,ndim=3, mode = "c"] lookup not None, \
+ *                 np.ndarray[double,ndim=3, mode = "fortran"] lookup not None, \
  */
   __pyx_tuple__9 = PyTuple_Pack(4, __pyx_n_s_arr, __pyx_n_s_tau, __pyx_n_s_lookup, __pyx_n_s_lookup_size); if (unlikely(!__pyx_tuple__9)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_tuple__9);
@@ -3865,9 +3866,9 @@ PyMODINIT_FUNC PyInit_interpol(void)
   /* "interpol.pyx":13
  * @cython.wraparound(False)
  * 
- * def interpol_2d(np.ndarray[double, ndim=1, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_2d(np.ndarray[double, ndim=1, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double, ndim = 2, mode="c"] lookup not None, \
+ *                 np.ndarray[double, ndim = 2, mode="fortran"] lookup not None, \
  */
   __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_8interpol_1interpol_2d, NULL, __pyx_n_s_interpol); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 13; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);
@@ -3877,9 +3878,9 @@ PyMODINIT_FUNC PyInit_interpol(void)
   /* "interpol.pyx":20
  *     c_interpol_2d(&arr[0], tau, &lookup[0,0], &lookup_size[0])
  * 
- * def interpol_3d(np.ndarray[double,ndim=2, mode = "c"] arr not None, \             # <<<<<<<<<<<<<<
+ * def interpol_3d(np.ndarray[double,ndim=2, mode = "fortran"] arr not None, \             # <<<<<<<<<<<<<<
  *                 double tau, \
- *                 np.ndarray[double,ndim=3, mode = "c"] lookup not None, \
+ *                 np.ndarray[double,ndim=3, mode = "fortran"] lookup not None, \
  */
   __pyx_t_1 = PyCFunction_NewEx(&__pyx_mdef_8interpol_3interpol_3d, NULL, __pyx_n_s_interpol); if (unlikely(!__pyx_t_1)) {__pyx_filename = __pyx_f[0]; __pyx_lineno = 20; __pyx_clineno = __LINE__; goto __pyx_L1_error;}
   __Pyx_GOTREF(__pyx_t_1);

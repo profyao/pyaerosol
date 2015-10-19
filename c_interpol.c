@@ -42,7 +42,7 @@ void c_interpol_3d(double * interpol, double tau, double * lookup, int * lookup_
 
 	double tau_grid[13]={0,0.05,0.1,0.2,0.4,0.6,0.8,1,1.5,2,3,4,6};
 	double yy1, yy2, xx1=0, xx2=6, zz1, zz2;
-	int    tau_m, tau_n, ini=0, inj, ink=0, pos, jj;
+	int    ini=0, inj, ink=0, pos, jj;
 
     if (tau<=0){
         interpol[0] = -1; /*error message*/

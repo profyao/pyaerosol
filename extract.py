@@ -28,8 +28,8 @@ def aod(date, path, orbit, block):
     from constant import BAND_GREEN
     file_aerosol = _MIL2ASAE_fname(date, path, orbit)
     f = SD(file_aerosol)
-    tau0 = f.select('RegMeanSpectralOptDepth').get()[block,:,:,BAND_GREEN]
-    tau0[tau0==-9999] = np.mean(tau0[tau0 != -9999])
+    tau0 = f.select('RegMeanSpectralOptDepth').get()[block-1 , : , :, BAND_GREEN-1]
+    tau0[tau0 == -9999] = np.mean(tau0[tau0 != -9999])
 
     return tau0
 
@@ -66,7 +66,7 @@ def _MIL2ASAE_fname(date, path, orbit):
     return file_aerosol
 
 
-def _reg_mat_fname(date,path,orbit,block,r):
+def _reg_mat_fname(date, path, orbit, block, r):
 
     orbit = fN.orbit2str(orbit)
     path = fN.path2str(path)
@@ -91,8 +91,8 @@ def pixel(xp, yp, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eo
         eof_p = eof[xp, yp, :, :]
         max_usable_eof_p = max_usable_eof[xp, yp]
 
-    tau_cam_ss = np.transpose(ss[:, math.ceil(xp/reg_scale), math.ceil(yp/reg_scale), COMPONENT_PARTICLE, :, :], [0, 3, 1, 2])
-    tau_cam_ms = np.transpose(ms[:, math.ceil(xp/reg_scale), math.ceil(yp/reg_scale), COMPONENT_PARTICLE, :, :], [0, 3, 1, 2])
+    tau_cam_ss = np.asfortranarray(np.transpose(ss[:, math.ceil(xp/reg_scale), math.ceil(yp/reg_scale), COMPONENT_PARTICLE-1, :, :], [0, 3, 1, 2]))
+    tau_cam_ms = np.asfortranarray(np.transpose(ms[:, math.ceil(xp/reg_scale), math.ceil(yp/reg_scale), COMPONENT_PARTICLE-1, :, :], [0, 3, 1, 2]))
 
     reg = collections.namedtuple('reg', 'channel_is_used min_equ_ref mean_equ_ref eof max_usable_eof')
     smart = collections.namedtuple('smart', 'ss ms')

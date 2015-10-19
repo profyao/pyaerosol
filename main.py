@@ -16,9 +16,8 @@ YDim_r = YDIM_R4400 * R4400/r
 reg_dat = extract.reg_dat(date, path, orbit, block, r)
 optical_properties = extract.particle(date, path, orbit)
 
-
-reg_is_used = reg_dat['reg'][0, 0]['reg_is_used']
-x, y = np.where(reg_is_used)
+reg_is_used = reg_dat['reg'][0, 0]['reg_is_used'].T
+y, x = np.where(reg_is_used)
 ind_used = np.ravel(reg_dat['reg'][0, 0]['ind_used'], order='F')
 num_reg_used = reg_dat['reg'][0, 0]['num_reg_used'][0][0]
 channel_is_used = reg_dat['reg'][0, 0]['channel_is_used']
@@ -33,16 +32,16 @@ ms = reg_dat['smart'][0, 0]['ms']
 Q = extract.get_q(r)
 
 i2d, j2d = np.nonzero(Q)
-reg_is_used = np.ravel(reg_is_used, order='F')
-mask = np.bool_(reg_is_used[i2d] & reg_is_used[j2d] & np.not_equal(i2d,j2d))
+reg_is_used = np.ravel(reg_is_used)
+mask = np.bool_(reg_is_used[i2d] & reg_is_used[j2d] & np.not_equal(i2d, j2d))
 
 tau0 = extract.aod(date, path, orbit, block)
 
 tau = np.mean(tau0)*np.ones(num_reg_used)
 
-theta = 1.0/COMPONENT_NUM * np.ones((COMPONENT_NUM, num_reg_used),dtype=float)
+theta = 1.0/COMPONENT_NUM * np.ones((COMPONENT_NUM, num_reg_used), dtype=float)
 
-p = 500
+p = 7
 xp = x[p]
 yp = y[p]
 theta_p = theta[:, p]
@@ -52,4 +51,5 @@ reg_p, smart_p = extract.pixel(xp, yp, channel_is_used, min_equ_ref, mean_equ_re
 
 atm_path, surf, resid = update.get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
 
-print atm_path, resid
+print atm_path
+print resid
