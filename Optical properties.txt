@@ -90,3 +90,12 @@ number                 index       index      cross-  scattering   parameter
            green        1.51     0.00210        15.5       0.902       0.772  
            red          1.51    0.000650        15.8       0.971       0.741  
            nir          1.51    0.000470        16.3       0.983       0.720  
+
+#p = 7
+#xp = x[p]
+#yp = y[p]
+#theta_p = theta[:, p]
+#tau_p = tau[p]
+
+#reg_p, smart_p = extract.pixel(xp, yp, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, r)
+#atm_path, surf, resid = update.get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
