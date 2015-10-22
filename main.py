@@ -47,26 +47,19 @@ dict_data, dict_param = update.get_data_param(x, y, num_reg_used, tau, theta, ch
 dict_neigh = update.get_dict_neigh(i, j, num_reg_used)
 dict_env = update.get_env(tau, theta, num_reg_used, dict_neigh)
 
-#sc = SparkContext()
-#dataRDD = sc.parallelize(dict_data)
+sc = SparkContext()
+dataRDD = sc.parallelize(dict_data)
 paramRDD = sc.parallelize(dict_param)
-#envRDD = sc.parallelize(dict_env)
-#pixelRDD = dataRDD.join(paramRDD).join(envRDD)
-
-p = 7
-xp = x[p]
-yp = y[p]
-tau_p = tau[p]
-theta_p = theta[:, p]
-
-reg_p, smart_p = extract.pixel(xp, yp, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, r)
-tau_neigh = dict_env[p][1].tau_neigh
-theta_neigh = dict_env[p][1].theta_neigh
-n_neigh = dict_env[p][1].n_neigh
-
+envRDD = sc.parallelize(dict_env)
+delta = 0.05
 kappa = update.get_kappa(paramRDD, i, j, num_reg_used)
-_, _, resid_p = update.get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
 sigmasq = update.get_sigmasq(paramRDD)
 
-tau_next,resid_next = update.get_tau(tau_p, theta_p, resid_p, tau_neigh, n_neigh, kappa, sigmasq, 0.05, reg_p, smart_p, optical_properties, r)
-theta_next,resid_next = update.get_theta(tau_p, theta_p, resid_p, theta_neigh, n_neigh, sigmasq, reg_p, smart_p, optical_properties, r)
+for iter in xrange(10):
+
+    pixelRDD = paramRDD.join(envRDD).join(dataRDD)
+    paramRDD, envRDD = update.get_param_env(pixelRDD, kappa, sigmasq, delta, num_reg_used, dict_neigh, sc, optical_properties, r)
+    kappa = update.get_kappa(paramRDD, i, j, num_reg_used)
+    sigmasq = update.get_sigmasq(paramRDD)
+    
+    print 'Iteration: ' + str(iter) + 'done!'

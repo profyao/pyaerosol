@@ -185,8 +185,36 @@ def get_dict_neigh(i, j, num_reg_used):
 
     return dict_neigh
 
-#def get_paramRDD(dataRDD, paramRDD, envRDD):
 
+def get_param_env(pixelRDD, kappa, sigmasq, delta, num_reg_used, dict_neigh, sc, optical_properties, r):
+
+
+    paramRDD = pixelRDD.map(lambda x: (x[0], get_param(x[1][0][0].tau, x[1][0][0].theta, x[1][0][0].resid, x[1][0][1].tau_neigh, x[1][0][1].theta_neigh, x[1][0][1].n_neigh, kappa, sigmasq, delta, x[1][1].reg,
+                                                                                    x[1][1].smart,optical_properties, r))).map(lambda x: (x[0], PixelParam(x[1][0], x[1][1], x[1][2])))
+
+    envRDD = get_envRDD(paramRDD, num_reg_used, dict_neigh, sc)
+
+    return paramRDD, envRDD
+
+
+def get_envRDD(paramRDD, num_reg_used, dict_neigh, sc):
+
+    tau = np.asarray(paramRDD.map(lambda x: x[1].tau).collect())
+    theta = np.asarray(paramRDD.map(lambda x: x[1].theta).collect()).T
+
+    dict_env = get_env(tau, theta, num_reg_used, dict_neigh)
+
+    envRDD = sc.parallelize(dict_env)
+
+    return envRDD
+
+
+def get_param(tau, theta, resid, tau_neigh, theta_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r):
+
+    tau, resid = get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r)
+    theta, resid = get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, optical_properties, r)
+
+    return tau, theta, resid
 
 
 def get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r):
@@ -204,28 +232,24 @@ def get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, s
             mu = 0.5 * (np.mean(tau_neigh) + tau)
             tau_next = mu + delta * np.random.normal()
 
-            print tau_next
-            tau_next = max(0, tau_next)
-            tau_next = min(3, tau_next)
-
-            s0 = kappa * sum((tau - tau_neigh)**2)
-            s1 = kappa * sum((tau_next - tau_neigh)**2)
+            s0 = kappa * np.sum((tau - tau_neigh)**2)
+            s1 = kappa * np.sum((tau_next - tau_neigh)**2)
         else:
 
             tau_next = tau + delta * np.random.normal()
 
-            tau_next = max(0, tau_next)
-            tau_next = min(3, tau_next)
-
             s0 = 0
             s1 = 0
+
+    tau_next = max(0, tau_next)
+    tau_next = min(3, tau_next)
 
     _, _, resid_next = get_resid(tau_next, theta, reg, smart, optical_properties, r)
 
     chisq_next = np.nansum(resid_next**2 / sigmasq)
     chisq = np.nansum(resid**2 / sigmasq)
 
-    if (np.isinf(resid[0]) and np.isinf(resid_next[0])) or chisq + s0 > chisq_next + s1 :
+    if (np.isinf(resid[0]) and np.isinf(resid_next[0])) or chisq + s0 > chisq_next + s1:
         return tau_next, resid_next
     else:
         return tau, resid
@@ -238,7 +262,9 @@ def get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, opti
     else:
         mu = theta
 
-    theta_next = map(lambda x: np.random.gamma(x, 1), mu)
+    theta_next = np.zeros(mu.shape)
+    idx = mu>=1e-6
+    theta_next[idx] = np.random.gamma(mu[idx], 1, mu[idx].shape)
     theta_next = theta_next / np.sum(theta_next)
 
     _, _, resid_next = get_resid(tau, theta_next, reg, smart, optical_properties, r)
