@@ -1,8 +1,11 @@
 import numpy as np
-from constant import CAM_DIM, BAND_DIM, MODEL_COMPONENTDIM, COMPONENT_PARTICLE, BAND_GREEN, COMPONENT_NUM, NCHANNEL
+import pandas as pd
+from constant import CAM_DIM, BAND_DIM, MODEL_COMPONENTDIM, COMPONENT_PARTICLE, BAND_GREEN, COMPONENT_NUM, NCHANNEL, POINTS, MODEL_OPTICALDEPTHLEN
 import interpol
 import extract
+import formatNum as fN
 from collections import namedtuple
+#from scipy.interpolate import griddata
 
 PixelData = namedtuple('PixelData', 'reg smart')
 PixelParam = namedtuple('PixelParam', 'tau theta resid')
@@ -48,16 +51,36 @@ def get_model(tau, theta, optical_properties, smart):
         if tau_band <= 0:
             ss = ss_band[0, :, :]
             ms = rayleigh
+        elif tau_band >=6:
+            ss = ss_band[MODEL_OPTICALDEPTHLEN-1, :, :]
+            ms = ms_band[MODEL_OPTICALDEPTHLEN-1, :, :]
         else:
+
             ss = np.zeros((CAM_DIM,COMPONENT_NUM), order='F')
             ms = np.zeros((CAM_DIM,COMPONENT_NUM), order='F')
             interpol.interpol_3d(ss, tau_band, ss_band, np.asarray(ss_band.shape, dtype=np.int32))
             interpol.interpol_3d(ms, tau_band, ms_band, np.asarray(ms_band.shape, dtype=np.int32))
+            #ss = interpol_3d(tau_band, ss_band, 'linear')
+            #ms = interpol_3d(tau_band, ms_band, 'linear')
 
         atm_path[:, band] = (rayleigh + ss).dot(fraction_band) + (ms - rayleigh).dot( \
             ssa_mixture / ssa_v * np.exp( - tau_band * abs(ssa_mixture - ssa_v)) * fraction_band)
 
     return atm_path, surf_limit
+
+
+"""
+def interpol_3d(tau, dat, method):
+
+    dat = np.ravel(dat, order = 'F')
+    cam_i, comp_i, tau_i = np.meshgrid(np.arange(CAM_DIM), np.arange(COMPONENT_NUM), tau)
+
+    fv = griddata(POINTS, dat, (cam_i, comp_i, tau_i), method)
+
+    fv = np.asfortranarray(fv[:, :, 0].T)
+
+    return fv
+"""
 
 
 def get_resid_eof(reg, atm_path, r):
@@ -100,13 +123,15 @@ def get_resid_eof(reg, atm_path, r):
         print 'resolution is incorrect!'
 
 
-def get_data_param(x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties, r):
+def get_data_param(date, path, orbit, block, x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties, r):
 
-    keys = xrange(num_reg_used)
+    ps = xrange(num_reg_used)
+    keys = [fN.get_key(date, path, orbit, block, p) for p in ps]
+
     dict_data = []
     dict_param = []
 
-    for p in keys:
+    for p in ps:
 
         tau_p = tau[p]
         theta_p = theta[:, p]
@@ -114,19 +139,33 @@ def get_data_param(x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref,
         reg_p, smart_p = extract.pixel(x[p], y[p], channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, r)
         _, _, resid_p = get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
 
-        dict_data.append((p, PixelData(reg_p, smart_p)))
-        dict_param.append((p, PixelParam(tau_p, theta_p, resid_p)))
+        dict_data.append((keys[p], PixelData(reg_p, smart_p)))
+        dict_param.append((keys[p], PixelParam(tau_p, theta_p, resid_p)))
 
     return dict_data, dict_param
 
 
-def get_sigmasq(paramRDD):
+def get_sigmasq(paramRDD, dates, paths, orbits, blocks):
 
-    a = paramRDD.map(lambda x: x[1].resid).reduce(lambda x, y: rm_nan_inf(x)**2 + rm_nan_inf(y)**2)
+    N = len(dates)
+    sigmasq = np.zeros((NCHANNEL, N))
 
-    b = paramRDD.map(lambda x: x[1].resid).reduce(lambda x, y: (np.isinf(x) | np.isnan(x)) + (np.isinf(y) | np.isnan(x)))
+    for d in xrange(N):
 
-    return a/(b+2)
+        key = fN.get_date_key(dates[d], paths[d], orbits[d], blocks[d])
+        residRDD = paramRDD.filter(lambda x: x[0][:4] == key).map(lambda x: x[1].resid)
+        sigmasq[:, d] = get_sigmasq_block(residRDD)
+
+    return sigmasq
+
+
+def get_sigmasq_block(residRDD):
+
+    a = residRDD.map(lambda x: rm_nan_inf(x)**2).reduce(lambda x, y: x + y)
+
+    b = residRDD.map(lambda x: np.isfinite(x).astype(float)).reduce(lambda x, y: x + y)
+
+    return a/(b + 2)
 
 
 def rm_nan_inf(resid):
@@ -136,9 +175,7 @@ def rm_nan_inf(resid):
     return resid
 
 
-def get_kappa(paramRDD, i, j, num_reg_used):
-
-    tau = np.array(paramRDD.map(lambda x: x[1].tau).collect())
+def get_kappa_block(tau, i, j, num_reg_used):
 
     tau_2d = 0.5 * sum((tau[i] - tau[j])**2)
 
@@ -148,13 +185,93 @@ def get_kappa(paramRDD, i, j, num_reg_used):
     return (num_reg_used - 3) / tau_2d
 
 
-def get_env(tau, theta, num_reg_used, dict_neigh):
+def get_kappa(paramRDD, i0, j0, num_reg_used0, dates, paths, orbits, blocks):
+
+    N = len(num_reg_used0)
+    kappa = np.zeros(N)
+
+    for d in xrange(N):
+
+        key = fN.get_date_key(dates[d], paths[d], orbits[d], blocks[d])
+        tau = paramRDD.filter(lambda x: x[0][:4] == key).map(lambda x: x[1].tau).collect()
+        kappa[d] = get_kappa_block(np.array(tau), i0[d], j0[d], num_reg_used0[d])
+
+    return kappa
+
+
+def get_neigh(date, path, orbit, block, i, j, num_reg_used):
+
+    dict_neigh = []
+    ps = xrange(num_reg_used)
+    keys = [fN.get_key(date, path, orbit, block, p) for p in ps]
+
+    for p in ps:
+
+        idx = np.equal(j, p)
+
+        if any(idx):
+            dict_neigh.append((keys[p], i[idx]))
+        else:
+            dict_neigh.append((keys[p], None))
+
+    return dict_neigh
+
+
+def get_param_env(dates, pixelRDD, kappa, sigmasq, delta, num_reg_used, dict_neigh, optical_properties, r):
+
+    paramRDD = pixelRDD.map(lambda x: get_param(x[0], dates, x[1], kappa, sigmasq, optical_properties, delta, r))
+
+    dict_env = get_env(dates, paramRDD, num_reg_used, dict_neigh)
+
+    return paramRDD, dict_env
+
+
+def get_param(key, dates, pixel, kappa0, sigmasq0, optical_properties0, delta, r):
+
+    d = dates.index(key[0])
+    optical_properties = optical_properties0[d]
+    kappa = kappa0[d]
+    sigmasq = sigmasq0[:, d]
+
+    tau = pixel[0][0].tau
+    theta = pixel[0][0].theta
+    resid = pixel[0][0].resid
+    tau_neigh = pixel[0][1].tau_neigh
+    theta_neigh = pixel[0][1].theta_neigh
+    n_neigh = pixel[0][1].n_neigh
+    reg = pixel[1].reg
+    smart = pixel[1].smart
+
+    tau, resid = get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r)
+    theta, resid = get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, optical_properties, r)
+
+    return key, PixelParam(tau, theta, resid)
+
+
+def get_env(dates, paramRDD, num_reg_used, dict_neigh):
+
+    dict_env0 = []
+
+    for d in dates:
+
+        tau = np.asarray(paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: x[1].tau).collect())
+        theta = np.asarray(paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: x[1].theta).collect()).T
+        dict_neigh_d = [dn for dn in dict_neigh if dn[0][0] == d]
+
+        dict_env = get_env_block(tau, theta, num_reg_used[dates.index(d)], dict_neigh_d)
+
+        dict_env0 = dict_env0 + dict_env
+
+    return dict_env0
+
+
+def get_env_block(tau, theta, num_reg_used, dict_neigh):
 
     dict_env = []
 
-    for p in xrange(num_reg_used):
+    for k in xrange(num_reg_used):
 
-        neighbor = dict_neigh[p][1]
+        neighbor = dict_neigh[k][1]
 
         if neighbor is not None:
             tau_neigh = tau[neighbor]
@@ -165,56 +282,9 @@ def get_env(tau, theta, num_reg_used, dict_neigh):
             theta_neigh = None
             n_neigh = 0
 
-        dict_env.append((p, PixelEnv(tau_neigh, theta_neigh, n_neigh)))
+        dict_env.append((dict_neigh[k][0], PixelEnv(tau_neigh, theta_neigh, n_neigh)))
 
     return dict_env
-
-
-def get_dict_neigh(i, j, num_reg_used):
-
-    dict_neigh = []
-
-    for p in xrange(num_reg_used):
-
-        idx = np.equal(j, p)
-
-        if any(idx):
-            dict_neigh.append((p, i[idx]))
-        else:
-            dict_neigh.append((p, None))
-
-    return dict_neigh
-
-
-def get_param_env(pixelRDD, kappa, sigmasq, delta, num_reg_used, dict_neigh, sc, optical_properties, r):
-
-
-    paramRDD = pixelRDD.map(lambda x: (x[0], get_param(x[1][0][0].tau, x[1][0][0].theta, x[1][0][0].resid, x[1][0][1].tau_neigh, x[1][0][1].theta_neigh, x[1][0][1].n_neigh, kappa, sigmasq, delta, x[1][1].reg,
-                                                                                    x[1][1].smart,optical_properties, r))).map(lambda x: (x[0], PixelParam(x[1][0], x[1][1], x[1][2])))
-
-    envRDD = get_envRDD(paramRDD, num_reg_used, dict_neigh, sc)
-
-    return paramRDD, envRDD
-
-
-def get_envRDD(paramRDD, num_reg_used, dict_neigh, sc):
-
-    tau = np.asarray(paramRDD.map(lambda x: x[1].tau).collect())
-    theta = np.asarray(paramRDD.map(lambda x: x[1].theta).collect()).T
-
-    dict_env = get_env(tau, theta, num_reg_used, dict_neigh)
-
-    envRDD = sc.parallelize(dict_env)
-
-    return envRDD
-
-
-def get_param(tau, theta, resid, tau_neigh, theta_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r):
-
-    tau, resid = get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r)
-    theta, resid = get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, optical_properties, r)
-
-    return tau, theta, resid
 
 
 def get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, smart, optical_properties, r):
@@ -241,13 +311,13 @@ def get_tau(tau, theta, resid, tau_neigh, n_neigh, kappa, sigmasq, delta, reg, s
             s0 = 0
             s1 = 0
 
-    tau_next = max(0, tau_next)
-    tau_next = min(3, tau_next)
+    tau_next = max(0., tau_next)
+    tau_next = min(3., tau_next)
 
     _, _, resid_next = get_resid(tau_next, theta, reg, smart, optical_properties, r)
 
-    chisq_next = np.nansum(resid_next**2 / sigmasq)
-    chisq = np.nansum(resid**2 / sigmasq)
+    chisq_next = np.nansum(resid_next**2 / sigmasq.T)
+    chisq = np.nansum(resid**2 / sigmasq.T)
 
     if (np.isinf(resid[0]) and np.isinf(resid_next[0])) or chisq + s0 > chisq_next + s1:
         return tau_next, resid_next
@@ -263,16 +333,69 @@ def get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, opti
         mu = theta
 
     theta_next = np.zeros(mu.shape)
-    idx = mu>=1e-6
+    idx = mu >= 1e-6
     theta_next[idx] = np.random.gamma(mu[idx], 1, mu[idx].shape)
     theta_next = theta_next / np.sum(theta_next)
 
     _, _, resid_next = get_resid(tau, theta_next, reg, smart, optical_properties, r)
 
-    chisq_next = np.nansum(resid_next**2 / sigmasq)
-    chisq = np.nansum(resid**2 / sigmasq)
+    chisq_next = np.nansum(resid_next**2 / sigmasq.T)
+    chisq = np.nansum(resid**2 / sigmasq.T)
 
     if (np.isinf(resid[0]) and np.isinf(resid_next[0])) or chisq > chisq_next:
         return theta_next, resid_next
     else:
         return theta, resid
+
+
+def merge_dict(file_xls, r):
+
+    xls = pd.ExcelFile(file_xls)
+    sheet_name = xls.sheet_names[0]
+    df = xls.parse(sheet_name)
+
+    nt = 5
+    dates = [df['Dates'][nt]]
+    paths = [df['Paths'][nt]]
+    orbits = [df['Orbits'][nt]]
+    blocks = [df['Blocks'][nt]]
+
+    dict_data0 = []
+    dict_param0 =[]
+    dict_neigh0 = []
+    dict_env0 = []
+    N = len(dates)
+    optical_properties0 = [[]] * N
+    num_reg_used0 = [0] * N
+    i0 = [[]] * N
+    j0 = [[]] * N
+
+    for d in xrange(N):
+
+        date = dates[d]
+        path = paths[d]
+        orbit = orbits[d]
+        block = blocks[d]
+
+        x, y, i, j, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties = \
+        extract.reg_smart(date, path, orbit, block, r)
+
+        dict_data, dict_param = get_data_param(date, path, orbit, block,\
+            x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties, r)
+        dict_neigh = get_neigh(date, path, orbit, block, i, j, num_reg_used)
+        dict_env = get_env_block(tau, theta, num_reg_used, dict_neigh)
+
+        dict_data0 = dict_data0 + dict_data
+        dict_param0 = dict_param0 + dict_param
+        dict_neigh0 = dict_neigh0 + dict_neigh
+        dict_env0 = dict_env0 + dict_env
+        optical_properties0[d] = optical_properties
+        num_reg_used0[d] = num_reg_used
+        i0[d] = i
+        j0[d] = j
+
+
+        print date + " dictionary is done!"
+
+    return dict_data0, dict_param0, dict_neigh0, dict_env0, optical_properties0, num_reg_used0, i0, j0, dates, paths, orbits, blocks
+

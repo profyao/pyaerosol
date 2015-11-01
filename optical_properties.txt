@@ -1,11 +1,3 @@
-Optical properties
-
-Component  Band     Spectral    Spectral    Spectral    Spectral    Spectral  Component particle name (*see note)
-particle          refractive  refractive  extinction      single  ansiotropy                         
-number                 index       index      cross-  scattering   parameter                         
-                        real   imaginary     section      albedo  (g factor)                         
-                                             (micro-             ***see note                         
-                                           meters^2)                                                 
 (1)        blue         1.45        0.00    0.000772        1.00       0.431  spherical_nonabsorbing_0.06 (sulfate, sea salt, organic)
            green        1.45        0.00    0.000396        1.00       0.352  
            red          1.45        0.00    0.000217        1.00       0.287  
@@ -90,22 +82,3 @@ number                 index       index      cross-  scattering   parameter
            green        1.51     0.00210        15.5       0.902       0.772  
            red          1.51    0.000650        15.8       0.971       0.741  
            nir          1.51    0.000470        16.3       0.983       0.720  
-
-
-p = 7
-xp = x[p]
-yp = y[p]
-tau_p = tau[p]
-theta_p = theta[:, p]
-
-reg_p, smart_p = extract.pixel(xp, yp, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, r)
-tau_neigh = dict_env[p][1].tau_neigh
-theta_neigh = dict_env[p][1].theta_neigh
-n_neigh = dict_env[p][1].n_neigh
-
-kappa = update.get_kappa(paramRDD, i, j, num_reg_used)
-_, _, resid_p = update.get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
-sigmasq = update.get_sigmasq(paramRDD)
-
-tau_next,resid_next = update.get_tau(tau_p, theta_p, resid_p, tau_neigh, n_neigh, kappa, sigmasq, 0.05, reg_p, smart_p, optical_properties, r)
-theta_next,resid_next = update.get_theta(tau_p, theta_p, resid_p, theta_neigh, n_neigh, sigmasq, reg_p, smart_p, optical_properties, r)
