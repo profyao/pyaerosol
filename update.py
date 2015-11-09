@@ -1,13 +1,10 @@
 import numpy as np
-import pandas as pd
 from constant import CAM_DIM, BAND_DIM, MODEL_COMPONENTDIM, COMPONENT_PARTICLE, BAND_GREEN, COMPONENT_NUM, NCHANNEL, POINTS, MODEL_OPTICALDEPTHLEN
 import interpol
-import extract
 import formatNum as fN
 from collections import namedtuple
 #from scipy.interpolate import griddata
 
-PixelData = namedtuple('PixelData', 'reg smart')
 PixelParam = namedtuple('PixelParam', 'tau theta resid')
 PixelEnv = namedtuple('PixelEnv', 'tau_neigh theta_neigh n_neigh')
 
@@ -106,43 +103,20 @@ def get_resid_eof(reg, atm_path, r):
 
     elif r == 1100:
 
-            cam_used = reg.channel_is_used[:, BAND_GREEN]
-            num_cam_used = np.sum(cam_used)
-            diff = reg.mean_equ_ref[cam_used, :] - atm_path[cam_used, :]
-            eof = reg.eof[1:num_cam_used, 1:num_cam_used]
+        cam_used = reg.channel_is_used[:, BAND_GREEN]
+        num_cam_used = np.sum(cam_used)
+        diff = reg.mean_equ_ref[cam_used, :] - atm_path[cam_used, :]
+        eof = reg.eof[:num_cam_used, :num_cam_used]
+        exp_coef = eof.dot(diff)
+        idx = np.less_equal(np.arange(num_cam_used), reg.max_usable_eof)
+        surf[cam_used, :] = eof[:, idx].dot(exp_coef[idx, :])
+        resid[cam_used, :] = diff - surf[cam_used, :]
 
-            exp_coef = diff.dot(eof)
-            idx = np.less_equal(np.arange(num_cam_used), reg.max_usable_eof)
-            surf[cam_used, :] = eof[:, idx].dot(exp_coef[idx, :])
-            resid[cam_used, :] = diff - surf[cam_used, :]
-
-            return np.ravel(resid), np.ravel(surf)
+        return np.ravel(resid), np.ravel(surf)
 
     else:
 
         print 'resolution is incorrect!'
-
-
-def get_data_param(date, path, orbit, block, x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties, r):
-
-    ps = xrange(num_reg_used)
-    keys = [fN.get_key(date, path, orbit, block, p) for p in ps]
-
-    dict_data = []
-    dict_param = []
-
-    for p in ps:
-
-        tau_p = tau[p]
-        theta_p = theta[:, p]
-
-        reg_p, smart_p = extract.pixel(x[p], y[p], channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, r)
-        _, _, resid_p = get_resid(tau_p, theta_p, reg_p, smart_p, optical_properties, r)
-
-        dict_data.append((keys[p], PixelData(reg_p, smart_p)))
-        dict_param.append((keys[p], PixelParam(tau_p, theta_p, resid_p)))
-
-    return dict_data, dict_param
 
 
 def get_sigmasq(paramRDD, dates, paths, orbits, blocks):
@@ -350,54 +324,4 @@ def get_theta(tau, theta, resid, theta_neigh, n_neigh, sigmasq, reg, smart, opti
     else:
         return theta, resid
 
-
-def merge_dict(file_xls, r):
-
-    xls = pd.ExcelFile(file_xls)
-    sheet_name = xls.sheet_names[0]
-    df = xls.parse(sheet_name)
-
-    dates = list(df['Dates'][5:6])
-    paths = list(df['Paths'][5:6])
-    orbits = list(df['Orbits'][5:6])
-    blocks = list(df['Blocks'][5:6])
-
-    dict_data0 = []
-    dict_param0 =[]
-    dict_neigh0 = []
-    dict_env0 = []
-    N = len(dates)
-    optical_properties0 = [[]] * N
-    num_reg_used0 = [0] * N
-    i0 = [[]] * N
-    j0 = [[]] * N
-
-    for d in xrange(N):
-
-        date = dates[d]
-        path = paths[d]
-        orbit = orbits[d]
-        block = blocks[d]
-
-        x, y, i, j, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties = \
-        extract.reg_smart(date, path, orbit, block, r)
-
-        dict_data, dict_param = get_data_param(date, path, orbit, block,\
-            x, y, num_reg_used, tau, theta, channel_is_used, min_equ_ref, mean_equ_ref, eof, max_usable_eof, ss, ms, optical_properties, r)
-        dict_neigh = get_neigh(date, path, orbit, block, i, j, num_reg_used)
-        dict_env = get_env_block(tau, theta, num_reg_used, dict_neigh)
-
-        dict_data0 = dict_data0 + dict_data
-        dict_param0 = dict_param0 + dict_param
-        dict_neigh0 = dict_neigh0 + dict_neigh
-        dict_env0 = dict_env0 + dict_env
-        optical_properties0[d] = optical_properties
-        num_reg_used0[d] = num_reg_used
-        i0[d] = i
-        j0[d] = j
-
-
-        print date + " dictionary is done!"
-
-    return dict_data0, dict_param0, dict_neigh0, dict_env0, optical_properties0, num_reg_used0, i0, j0, dates, paths, orbits, blocks
 
