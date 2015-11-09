@@ -254,8 +254,11 @@ def get_env(dates, paramRDD, num_reg_used, dict_neigh):
 
     for d in dates:
 
-        tau = np.asarray(paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: x[1].tau).collect())
-        theta = np.asarray(paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: x[1].theta).collect()).T
+        tau = paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: (x[0][4], x[1].tau)).collect()
+        theta = paramRDD.filter(lambda x: x[0][0] == d).map(lambda x: (x[0][4], x[1].theta)).collect()
+        tau = np.array([x[1] for x in sorted(tau, key = lambda y: y[0])])
+        theta = np.array([x[1] for x in sorted(theta, key = lambda y: y[0])]).T
+
         dict_neigh_d = [dn for dn in dict_neigh if dn[0][0] == d]
 
         dict_env = get_env_block(tau, theta, num_reg_used[dates.index(d)], dict_neigh_d)
@@ -354,11 +357,10 @@ def merge_dict(file_xls, r):
     sheet_name = xls.sheet_names[0]
     df = xls.parse(sheet_name)
 
-    nt = 5
-    dates = [df['Dates'][nt]]
-    paths = [df['Paths'][nt]]
-    orbits = [df['Orbits'][nt]]
-    blocks = [df['Blocks'][nt]]
+    dates = list(df['Dates'][5:6])
+    paths = list(df['Paths'][5:6])
+    orbits = list(df['Orbits'][5:6])
+    blocks = list(df['Blocks'][5:6])
 
     dict_data0 = []
     dict_param0 =[]
